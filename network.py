@@ -9,6 +9,8 @@ from functions import gaussian, euclidean_distance, gaussian_second_derivative
 class Network:
     def __init__(self, input_shape, shape, metric=euclidean_distance,
                  neighbourhood_func=gaussian, min_val=-1, max_val=1):
+        self.neighbourhood_scale = None
+        self.data = None
         self.learning_rate = None
         self.n_epochs = None
         self.metric = metric
@@ -37,9 +39,12 @@ class Network:
     def decay_function(self, t):
         return np.exp(-t / self.n_epochs)
 
+    def distance_between_neighbors(self, n1, n2):
+        return np.abs(n1[0] - n2[0]) + np.abs(n1[1] - n2[1])
+
     def neighbourhood_weights(self, n1, n2, t):
-        distance = self.metric(n1, n2)
-        return self.neighbourhood_func(distance, t)
+        distance = self.distance_between_neighbors(n1, n2)
+        return self.neighbourhood_func(distance * self.neighbourhood_scale, t)
 
     def find_closest_neighbour(self, x):
         min_distance = sys.maxsize
@@ -60,40 +65,36 @@ class Network:
         return np.unravel_index(np.argmin(distances, axis=None),
                                 distances.shape)
 
-    def _update_weights(self, BMU_coord):
-        # weigths_delta =
-        pass
-
-    def fit(self, data, n_epochs, neighbourhood_scale, learning_rate=1):
+    def fit(self, all_data, n_epochs, neighbourhood_scale, learning_rate=1, visualise=True):
         self.n_epochs = n_epochs
-        neighbourhood_scale = neighbourhood_scale
+        self.neighbourhood_scale = neighbourhood_scale
         self.learning_rate = learning_rate
         self._create_name()
+        self.data = all_data[:, [0, 1]]
         for t in range(n_epochs):
-            np.random.shuffle(data)
-            print(f'Epoch no. {t}')
-            for x in data:
+            np.random.shuffle(self.data)
+            if t % 2 == 1:
+                print(f'Epoch no. {t}')
+                if visualise:
+                    self.plot(all_data)
+            for x in self.data:
                 BMU_coord = self._find_BMU(x)
                 for i in range(self.shape[0]):
                     for j in range(self.shape[1]):
                         n1 = np.array(BMU_coord)
                         n2 = np.array([i, j])
                         delta_weights = self.neighbourhood_weights(n1, n2, t) \
-                                        * self.learning_rate \
                                         * self.decay_function(t) * (
-                                                x * neighbourhood_scale - self.weights[
-                                                                          i, j,
-                                                                          :])
+                                                x - self.weights[i, j, :])
                         self.weights[i, j, :] += delta_weights
-        self.save_weights()
 
-    def cluster(self, data):
-        clusters = []
-        for i in range(len(data)):
-            x = np.array(data.iloc[i, :2])
-            i_min, j_min = self._find_BMU(x)
-            clusters.append([data.loc[i, 'c'], i_min, j_min])
-        return np.array(clusters)
+    # def cluster(self, data):
+    #     clusters = []
+    #     for i in range(len(data)):
+    #         x = np.array(data.iloc[i, :2])
+    #         i_min, j_min = self._find_BMU(x)
+    #         clusters.append([data.loc[i, 'c'], i_min, j_min])
+    #     return np.array(clusters)
 
     def visualise(self, clusters):
         x = clusters[:, 1][0]
@@ -105,6 +106,36 @@ class Network:
 
         plt.imshow(neurons)
         plt.show()
+
+    def plot(self, data):
+        if self.input_shape == 2:
+            self.plot_2D(data)
+
+        if self.input_shape == 3:
+            self.plot_3D(data)
+
+    def plot_2D(self, data):
+        plt.figure(figsize=(4, 2))
+        plt.scatter(data[:, 0], data[:, 1], c=self.assign_data_to_clusters(data[:, [0, 1]]))
+        for i in range(self.shape[0]):
+            for j in range(self.shape[1]):
+                if len(self.weights.shape) == 3:
+                    w = self.weights[i, j]
+                    plt.scatter(x=[w[0]], y=[w[1]], color='black', s=50)
+        plt.title('Podział na klastry według sieci Kohonena')
+        plt.show()
+
+    def plot_3D(self, data):
+        pass
+
+    def assign_data_to_clusters(self, data):
+        centers = np.reshape(self.weights, (-1, self.input_shape))
+        data_clusters = []
+        for row in data:
+            distances = np.array(
+                [euclidean_distance(row, center) for center in centers])
+            data_clusters.append(np.argmin(distances))
+        return data_clusters
 
     def save_weights(self):
         if not os.path.isdir('weights'):
