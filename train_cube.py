@@ -26,13 +26,13 @@ cube_data = np.concatenate((cube_xyz, c), axis=1)
 
 shapes = [(2, 4), (1, 8)]
 neighb_functions = [gaussian, gaussian_second_derivative]
-neighb_scales = [1, 0.7, 0.5]
-
-for s in shapes:
-    for ns in neighb_scales:
-        for i in range(5):
-            KN = Network(input_shape=3, shape=s, name=f'cube_{s}_{ns}_cv_{i}')
-            KN.fit(cube_xyz, 20, neighbourhood_scale=ns, y_train=c.squeeze())
+neighb_scales = [0.3, 0.1]
+#
+# for s in shapes:
+#     for ns in neighb_scales:
+#         for i in range(5):
+#             KN = Network(input_shape=3, shape=s, name=f'cube_{s}_{ns}_cv_{i}')
+#             KN.fit(cube_xyz, 20, neighbourhood_scale=ns, y_train=c.squeeze())
 
 for s in shapes[:2]:
     for ns in neighb_scales:
